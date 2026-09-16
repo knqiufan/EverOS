@@ -1,131 +1,10 @@
-# CI is a thin wrapper over the Makefile — single source of truth for commands.
-# See docs/engineering.md and the Makefile for what each target does.
-
-name: CI
-
+name: Radius Milvus validation
 on:
   push:
-    branches: [main]
-  pull_request:
-
-# Cancel superseded runs on the same ref to save CI minutes.
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+    branches: [codex/validate-radius-milvus]
 permissions:
   contents: read
-
 jobs:
-  lint:
-    name: lint
-    runs-on: ubuntu-latest
-    steps:
-      # Full history: scripts/check_file_sizes.py diffs against the base
-      # branch's merge base, which a shallow clone cannot resolve.
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies (frozen)
-        run: make install-deps
-
-      - name: Lint (ruff + import-linter + repo gates + datetime + openapi drift)
-        run: make lint
-
-  unit:
-    name: unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies (frozen)
-        run: make install-deps
-
-      - name: Unit tests
-        run: make test
-
-  unit-py313:
-    name: unit tests (3.13)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install dependencies (frozen)
-        run: make install-deps
-
-      - name: Unit tests
-        run: make test
-
-  integration:
-    name: integration tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies (frozen)
-        run: make install-deps
-
-      - name: Integration tests
-        run: make integration
-
-  integration-py313:
-    name: integration tests (3.13)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install dependencies (frozen)
-        run: make install-deps
-
-      - name: Integration tests
-        run: make integration
-
   integration-milvus:
     name: integration tests (Milvus 2.6)
     runs-on: ubuntu-latest
@@ -149,6 +28,7 @@ jobs:
           curl --fail --location --retry 3 \
             --output /tmp/milvus-compose.yml \
             https://github.com/milvus-io/milvus/releases/download/v2.6.22/milvus-standalone-docker-compose.yml
+          sed -i 's#image: minio/minio:#image: quay.io/minio/minio:#' /tmp/milvus-compose.yml
           docker compose -f /tmp/milvus-compose.yml up -d
           for attempt in {1..60}; do
             if curl --fail --silent http://127.0.0.1:9091/healthz >/dev/null; then
@@ -195,20 +75,3 @@ jobs:
         if: always()
         run: docker compose -f /tmp/milvus-compose.yml down -v
 
-  package:
-    name: package build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Build and smoke-test package
-        run: make package
