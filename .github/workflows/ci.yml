@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [codex/validate-radius-review]
   pull_request:
 
 # Cancel superseded runs on the same ref to save CI minutes.
@@ -149,6 +149,7 @@ jobs:
           curl --fail --location --retry 3 \
             --output /tmp/milvus-compose.yml \
             https://github.com/milvus-io/milvus/releases/download/v2.6.22/milvus-standalone-docker-compose.yml
+          sed -i 's|image: minio/minio:|image: quay.io/minio/minio:|' /tmp/milvus-compose.yml
           docker compose -f /tmp/milvus-compose.yml up -d
           for attempt in {1..60}; do
             if curl --fail --silent http://127.0.0.1:9091/healthz >/dev/null; then
